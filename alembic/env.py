@@ -7,6 +7,10 @@ from alembic import context
 
 import sys
 import os
+from dotenv import load_dotenv
+
+# Carregar variáveis do .env
+load_dotenv()
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -65,8 +69,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Usar URL do .env em vez do alembic.ini
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = os.getenv("DATABASE_URL")
+    
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

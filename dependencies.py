@@ -20,7 +20,7 @@ def verificar_token(token: str = Depends(oauth2_schema), session: Session = Depe
     except JWTError as erro:
         print(erro)
         raise HTTPException(status_code=401, detail="Acesso Negado, verifique a validade do token")
-    usuario = session.query(Usuario).filter(Usuario.id==id_usuario).first()
+    usuario = session.query(Usuario).filter(Usuario.id_usuario==id_usuario).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Acesso Inválido")
     return usuario
