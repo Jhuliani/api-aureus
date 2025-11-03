@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from models import Usuario, Cliente
 from dependencies import pegar_sessao, verificar_token
 from main import bcrypt_context, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, limiter
-from schemas import UsuarioSchema, LoginSchema
+from schemas import LoginSchema
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
@@ -43,16 +43,14 @@ async def home():
     """
     return {"mensagem": "Você acessou a rota padrão de autenticação", "autenticado": False}
 
-# login -> email e senha -> token JWT (Json Web Token) ahuyba786dabd86a5vdba865dvad786and
 @auth_router.post("/login")
-@limiter.limit("5/minute")  # Máximo 5 tentativas por minuto por IP
+# @limiter.limit("5/minute")  
 async def login(request: Request, login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):
     usuario = autenticar_usuario(login_schema.login, login_schema.senha, session)
     
     if not usuario:
         raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas")
     else:
-        # Buscar o cliente relacionado ao usuário
         cliente = session.query(Cliente).filter(Cliente.id_usuario == usuario.id_usuario).first()
         
         if not cliente:
@@ -70,13 +68,12 @@ async def login(request: Request, login_schema: LoginSchema, session: Session = 
         }
     
 @auth_router.post("/login-form")
-@limiter.limit("5/minute")  # Máximo 5 tentativas por minuto por IP
+@limiter.limit("5/minute")  
 async def login_form(request: Request, dados_formulario: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(pegar_sessao)):
     usuario = autenticar_usuario(dados_formulario.username, dados_formulario.password, session)
     if not usuario:
         raise HTTPException(status_code=400, detail="Usuário não encontrado ou credenciais inválidas")
     else:
-        # Buscar o cliente relacionado ao usuário
         cliente = session.query(Cliente).filter(Cliente.id_usuario == usuario.id_usuario).first()
         
         if not cliente:
@@ -93,7 +90,7 @@ async def login_form(request: Request, dados_formulario: OAuth2PasswordRequestFo
 
 
 @auth_router.get("/refresh")
-@limiter.limit("10/minute")  # Máximo 10 refresh por minuto por IP
+@limiter.limit("10/minute")   
 async def use_refresh_token(request: Request, usuario: Usuario = Depends(verificar_token)):
     access_token = criar_token(usuario.id_usuario)
     return {

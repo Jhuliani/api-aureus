@@ -14,7 +14,6 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
-# Configuração do Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI()
@@ -23,10 +22,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especifique os domínios exatos
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Permite todos os métodos (GET, POST, PUT, DELETE, OPTIONS)
-    allow_headers=["*"],  # Permite todos os headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
