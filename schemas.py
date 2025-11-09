@@ -62,6 +62,7 @@ class ClienteCompletoSchema(BaseModel):
         from_attributes = True
 
 class ContratoDetalhadoSchema(BaseModel):
+    id_contrato: int
     numero_contrato: str
     status: str
     id_cliente: int
@@ -79,10 +80,64 @@ class ContratosResponseSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class ParcelaSchema(BaseModel):
+    id_parcela: int
+    numero_parcela: int
+    valor_parcela: float
+    data_vencimento: date
+    data_pagamento: Optional[date] = None
+    valor_pago: Optional[float] = None
+    status: str
+
+    class Config:
+        from_attributes = True
+
+class FinanceiroCompletoSchema(BaseModel):
+    id_financeiro: int
+    valor_total: float
+    valor_entrada: float
+    taxa_juros: Optional[float] = None
+    qtde_parcelas: int
+    data_primeiro_vencimento: date
+    status_pagamento: str
+    data_criacao: date
+    parcelas: list[ParcelaSchema] = []
+
+    class Config:
+        from_attributes = True
+
+class VeiculoCompletoSchema(BaseModel):
+    id_veiculo: int
+    marca: str
+    modelo: str
+    ano_fabricacao: int
+    ano_modelo: int
+    cor: Optional[str] = None
+    placa: Optional[str] = None
+    num_chassi: str
+    num_renavam: str
+    valor: float
+
+    class Config:
+        from_attributes = True
+
+class ContratoCompletoSchema(BaseModel):
+    id_contrato: int
+    numero_contrato: str
+    status: str
+    id_cliente: int
+    data_emissao: date
+    vigencia_fim: Optional[date] = None
+    veiculo: VeiculoCompletoSchema
+    financeiro: FinanceiroCompletoSchema
+
+    class Config:
+        from_attributes = True
+
 class InformacoesFipeSchema(BaseModel):
     Valor: Optional[str] = None
     Combustivel: Optional[str] = None
-    CodigoFipe: Optional[str] = None  # Corrigido: estava CodigoFIPE
+    CodigoFipe: Optional[str] = None  
     MesReferencia: Optional[str] = None
 
     class Config:
@@ -99,10 +154,10 @@ class VeiculoSchema(BaseModel):
 
 class FinanceiroSchema(BaseModel):
     valorVeiculo: float
-    valorEntrada: Union[float, None] = 0.0  # Aceita None e converte para 0
+    valorEntrada: Union[float, None] = 0.0  
     parcelasSelecionadas: int
     taxaJuros: float
-    rendaMensal: Union[float, None] = 0.0  # Aceita None e converte para 0
+    rendaMensal: Union[float, None] = 0.0  
     valorFinanciado: Optional[float] = None
     valorParcela: Optional[float] = None
     totalPagar: Optional[float] = None
@@ -120,9 +175,9 @@ class SolicitacaoCompletaSchema(BaseModel):
     id_cliente: int
     informacoesFipe: Optional[InformacoesFipeSchema] = None
     tipoVeiculo: Optional[str] = None
-    marcaSelecionada: Optional[Union[str, int]] = None  # Aceita string ou int
+    marcaSelecionada: Optional[Union[str, int]] = None  
     marcaNome: Optional[str] = None
-    modeloSelecionado: Optional[Union[str, int]] = None  # Aceita string ou int (frontend envia número)
+    modeloSelecionado: Optional[Union[str, int]] = None  
     modeloNome: Optional[str] = None
     anoSelecionado: Optional[str] = None
     veiculo: VeiculoSchema
@@ -134,11 +189,11 @@ class SolicitacaoCompletaSchema(BaseModel):
     @field_validator('modeloSelecionado', 'marcaSelecionada', mode='before')
     @classmethod
     def converter_para_string(cls, v):
-        # Converte número para string se necessário
+
         if v is not None:
             return str(v)
         return v
 
     class Config:
         from_attributes = True
-        extra = "ignore"  # Ignora campos extras que não estão no schema
+        extra = "ignore"  

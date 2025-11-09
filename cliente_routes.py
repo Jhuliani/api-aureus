@@ -4,7 +4,8 @@ from dependencies import pegar_sessao, verificar_token
 from main import limiter
 from schemas import (
     ClienteCompletoSchema, ContratoDetalhadoSchema, ContratosResponseSchema,
-    SolicitacaoCompletaSchema
+    SolicitacaoCompletaSchema, ContratoCompletoSchema, VeiculoCompletoSchema,
+    FinanceiroCompletoSchema, ParcelaSchema
 )
 from models import Contrato, Endereco, Usuario, Cliente, Financeiro, Veiculo, Parcela
 from main import bcrypt_context
@@ -118,6 +119,7 @@ async def contratos(id_cliente: int, session: Session = Depends(pegar_sessao)):
         
         if financeiro:  
             contrato_detalhado = ContratoDetalhadoSchema(
+                id_contrato=contrato.id_contrato,
                 numero_contrato=contrato.num_contrato,
                 status=contrato.status,
                 id_cliente=contrato.id_cliente,
@@ -133,6 +135,79 @@ async def contratos(id_cliente: int, session: Session = Depends(pegar_sessao)):
     return ContratosResponseSchema(
         contratos=contratos_detalhados,
         total=len(contratos_detalhados)
+    )
+
+
+@cliente_router.get("/contrato/{id_contrato}", response_model=ContratoCompletoSchema, dependencies=[Depends(verificar_token)])
+async def detalhes_contrato(id_contrato: int, session: Session = Depends(pegar_sessao)):
+    """
+    Retorna informações completas de um contrato específico:
+    - Dados do Contrato
+    - Dados do Veículo
+    - Dados Financeiros
+    - Todas as Parcelas
+    """
+    contrato = session.query(Contrato).filter(Contrato.id_contrato == id_contrato).first()
+    
+    if not contrato:
+        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+    
+    veiculo = session.query(Veiculo).filter(Veiculo.id_veiculo == contrato.id_veiculo).first()
+    if not veiculo:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado para este contrato")
+    
+    financeiro = session.query(Financeiro).filter(Financeiro.id_contrato == contrato.id_contrato).first()
+    if not financeiro:
+        raise HTTPException(status_code=404, detail="Dados financeiros não encontrados para este contrato")
+    
+    parcelas = session.query(Parcela).filter(Parcela.id_financeiro == financeiro.id_financeiro).order_by(Parcela.numero_parcela).all()
+    
+    parcelas_schema = [
+        ParcelaSchema(
+            id_parcela=p.id_parcela,
+            numero_parcela=p.numero_parcela,
+            valor_parcela=float(p.valor_parcela),
+            data_vencimento=p.data_vencimento,
+            data_pagamento=p.data_pagamento,
+            valor_pago=float(p.valor_pago) if p.valor_pago else None,
+            status=p.status
+        ) for p in parcelas
+    ]
+    
+    financeiro_schema = FinanceiroCompletoSchema(
+        id_financeiro=financeiro.id_financeiro,
+        valor_total=float(financeiro.valor_total),
+        valor_entrada=float(financeiro.valor_entrada),
+        taxa_juros=float(financeiro.taxa_juros) if financeiro.taxa_juros else None,
+        qtde_parcelas=financeiro.qtde_parcelas,
+        data_primeiro_vencimento=financeiro.data_primeiro_vencimento,
+        status_pagamento=financeiro.status_pagamento,
+        data_criacao=financeiro.data_criacao,
+        parcelas=parcelas_schema
+    )
+    
+    veiculo_schema = VeiculoCompletoSchema(
+        id_veiculo=veiculo.id_veiculo,
+        marca=veiculo.marca,
+        modelo=veiculo.modelo,
+        ano_fabricacao=veiculo.ano_fabricacao,
+        ano_modelo=veiculo.ano_modelo,
+        cor=veiculo.cor,
+        placa=veiculo.placa,
+        num_chassi=veiculo.num_chassi,
+        num_renavam=veiculo.num_renavam,
+        valor=float(veiculo.valor)
+    )
+    
+    return ContratoCompletoSchema(
+        id_contrato=contrato.id_contrato,
+        numero_contrato=contrato.num_contrato,
+        status=contrato.status,
+        id_cliente=contrato.id_cliente,
+        data_emissao=contrato.data_emissao,
+        vigencia_fim=contrato.vigencia_fim,
+        veiculo=veiculo_schema,
+        financeiro=financeiro_schema
     )
 
 
@@ -166,14 +241,11 @@ def extrair_ano_do_codigo_fipe(ano_codigo: str) -> tuple[int, int]:
     """
     if not ano_codigo:
         raise ValueError("Código do ano não fornecido")
-    
-    # Tenta extrair o ano do código
-    # Formato comum: "2024-1" ou "2024" ou apenas números
+
     match = re.search(r'(\d{4})', str(ano_codigo))
     if match:
         ano = int(match.group(1))
-        # Assumimos que ano_fabricacao e ano_modelo são iguais
-        # (pode ser ajustado conforme necessário)
+
         return (ano, ano)
     
     raise ValueError(f"Não foi possível extrair o ano do código: {ano_codigo}")
