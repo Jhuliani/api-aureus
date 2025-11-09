@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 from dependencies import pegar_sessao, verificar_token
 from main import limiter
 from schemas import (
-    ClienteCompletoSchema, ContratoDetalhadoSchema, ContratosResponseSchema
+    ClienteCompletoSchema, ContratoDetalhadoSchema, ContratosResponseSchema,
+    SolicitacaoCompletaSchema
 )
-from models import Contrato, Endereco, Usuario, Cliente, Financeiro
+from models import Contrato, Endereco, Usuario, Cliente, Financeiro, Veiculo, Parcela
 from main import bcrypt_context
-from datetime import date
+from datetime import date, timedelta
+from calendar import monthrange
+import re
 
 cliente_router = APIRouter(prefix="/cliente", tags=["cliente"])
 
@@ -133,3 +136,193 @@ async def contratos(id_cliente: int, session: Session = Depends(pegar_sessao)):
         contratos=contratos_detalhados,
         total=len(contratos_detalhados)
     )
+
+
+def gerar_numero_contrato(session: Session) -> str:
+    """
+    Gera um número de contrato único no formato: CT-YYYYMMDD-XXXX
+    """
+    hoje = date.today()
+    prefixo = f"CT-{hoje.strftime('%Y%m%d')}"
+    
+    # Busca o último contrato do dia
+    ultimo_contrato = session.query(Contrato).filter(
+        Contrato.num_contrato.like(f"{prefixo}-%")
+    ).order_by(Contrato.num_contrato.desc()).first()
+    
+    if ultimo_contrato:
+        # Extrai o número sequencial e incrementa
+        ultimo_numero = int(ultimo_contrato.num_contrato.split('-')[-1])
+        novo_numero = ultimo_numero + 1
+    else:
+        novo_numero = 1
+    
+    return f"{prefixo}-{novo_numero:04d}"
+
+
+def extrair_ano_do_codigo_fipe(ano_codigo: str) -> tuple[int, int]:
+    """
+    Extrai ano de fabricação e ano modelo do código FIPE.
+    O código FIPE geralmente vem como "2024-1" ou "2024" ou apenas o ano.
+    Retorna (ano_fabricacao, ano_modelo)
+    """
+    if not ano_codigo:
+        raise ValueError("Código do ano não fornecido")
+    
+    # Tenta extrair o ano do código
+    # Formato comum: "2024-1" ou "2024" ou apenas números
+    match = re.search(r'(\d{4})', str(ano_codigo))
+    if match:
+        ano = int(match.group(1))
+        # Assumimos que ano_fabricacao e ano_modelo são iguais
+        # (pode ser ajustado conforme necessário)
+        return (ano, ano)
+    
+    raise ValueError(f"Não foi possível extrair o ano do código: {ano_codigo}")
+
+
+@cliente_router.post("/solicitacao", dependencies=[Depends(verificar_token)])
+@limiter.limit("5/minute")
+async def criar_solicitacao_financiamento(
+    request: Request,
+    dados: SolicitacaoCompletaSchema,
+    session: Session = Depends(pegar_sessao)
+):
+    """
+    Cria uma solicitação de financiamento completa:
+    - Cria o Veículo
+    - Cria o Contrato
+    - Cria o Financeiro
+    - Cria todas as Parcelas
+    """
+    try:
+        session.begin()
+        
+        cliente = session.query(Cliente).filter(Cliente.id_cliente == dados.id_cliente).first()
+        if not cliente:
+            session.rollback()
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        
+        placa_normalizada = dados.veiculo.placa.upper().replace('-', '').replace(' ', '')
+        chassi_normalizado = dados.veiculo.numChassi.upper().strip()
+        renavam_normalizado = dados.veiculo.numRenavam.strip()
+        
+        veiculo_existente_placa = session.query(Veiculo).filter(
+            Veiculo.placa == placa_normalizada
+        ).first()
+        if veiculo_existente_placa:
+            session.rollback()
+            raise HTTPException(status_code=400, detail="Placa já cadastrada")
+        
+        veiculo_existente_chassi = session.query(Veiculo).filter(
+            Veiculo.num_chassi == chassi_normalizado
+        ).first()
+        if veiculo_existente_chassi:
+            session.rollback()
+            raise HTTPException(status_code=400, detail="Chassi já cadastrado")
+        
+        veiculo_existente_renavam = session.query(Veiculo).filter(
+            Veiculo.num_renavam == renavam_normalizado
+        ).first()
+        if veiculo_existente_renavam:
+            session.rollback()
+            raise HTTPException(status_code=400, detail="RENAVAM já cadastrado")
+        
+        try:
+            ano_fabricacao, ano_modelo = extrair_ano_do_codigo_fipe(dados.anoSelecionado)
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(status_code=400, detail=f"Erro ao processar ano: {str(e)}")
+        
+        veiculo = Veiculo(
+            marca=dados.marcaNome or "Não informado",
+            modelo=dados.modeloNome or "Não informado",
+            ano_fabricacao=ano_fabricacao,
+            ano_modelo=ano_modelo,
+            cor=dados.veiculo.cor,
+            placa=placa_normalizada,
+            num_chassi=chassi_normalizado,
+            num_renavam=renavam_normalizado,
+            valor=float(dados.financeiro.valorVeiculo)
+        )
+        session.add(veiculo)
+        session.flush()
+        
+        num_contrato = gerar_numero_contrato(session)
+        
+        data_emissao = date.today()
+        data_primeiro_vencimento = data_emissao + timedelta(days=30)
+        
+        contrato = Contrato(
+            id_cliente=dados.id_cliente,
+            id_veiculo=veiculo.id_veiculo,
+            num_contrato=num_contrato,
+            data_emissao=data_emissao,
+            status="ativo"
+        )
+        session.add(contrato)
+        session.flush()
+        
+        valor_total = float(dados.financeiro.totalPagar or dados.financeiro.valorVeiculo)
+        financeiro = Financeiro(
+            id_contrato=contrato.id_contrato,
+            valor_total=valor_total,
+            valor_entrada=float(dados.financeiro.valorEntrada),
+            taxa_juros=float(dados.financeiro.taxaJuros),
+            qtde_parcelas=int(dados.financeiro.parcelasSelecionadas),
+            data_primeiro_vencimento=data_primeiro_vencimento,
+            status_pagamento="em_dia",
+            data_criacao=data_emissao
+        )
+        session.add(financeiro)
+        session.flush()
+        
+        valor_parcela = float(dados.financeiro.valorParcela or (valor_total / dados.financeiro.parcelasSelecionadas))
+        qtde_parcelas = int(dados.financeiro.parcelasSelecionadas)
+        
+        for i in range(1, qtde_parcelas + 1):
+            meses_apos_primeiro = i - 1
+            if meses_apos_primeiro == 0:
+                data_vencimento = data_primeiro_vencimento
+            else:
+                ano = data_primeiro_vencimento.year
+                mes = data_primeiro_vencimento.month
+                dia = data_primeiro_vencimento.day
+                
+                mes += meses_apos_primeiro
+                while mes > 12:
+                    mes -= 12
+                    ano += 1
+                
+                ultimo_dia_mes = monthrange(ano, mes)[1]
+                dia_ajustado = min(dia, ultimo_dia_mes)
+                
+                data_vencimento = date(ano, mes, dia_ajustado)
+            
+            parcela = Parcela(
+                id_financeiro=financeiro.id_financeiro,
+                numero_parcela=i,
+                valor_parcela=valor_parcela,
+                data_vencimento=data_vencimento,
+                status="pendente"
+            )
+            session.add(parcela)
+        
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": "Solicitação de financiamento criada com sucesso",
+            "id_contrato": contrato.id_contrato,
+            "id_veiculo": veiculo.id_veiculo,
+            "id_financeiro": financeiro.id_financeiro,
+            "numero_contrato": num_contrato,
+            "total_parcelas": qtde_parcelas
+        }
+        
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao criar solicitação: {str(e)}")

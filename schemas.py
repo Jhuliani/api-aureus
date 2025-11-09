@@ -78,3 +78,50 @@ class ContratosResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+class InformacoesFipeSchema(BaseModel):
+    Valor: Optional[str] = None
+    Combustivel: Optional[str] = None
+    CodigoFIPE: Optional[str] = None
+    MesReferencia: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class VeiculoSchema(BaseModel):
+    placa: str
+    numChassi: str
+    numRenavam: str
+    cor: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class FinanceiroSchema(BaseModel):
+    valorVeiculo: float
+    valorEntrada: float
+    parcelasSelecionadas: int
+    taxaJuros: float
+    rendaMensal: float
+    valorFinanciado: Optional[float] = None
+    valorParcela: Optional[float] = None
+    totalPagar: Optional[float] = None
+    totalJuros: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+class SolicitacaoCompletaSchema(BaseModel):
+    id_cliente: int
+    informacoesFipe: Optional[InformacoesFipeSchema] = None
+    tipoVeiculo: Optional[str] = None
+    marcaSelecionada: Optional[str] = None
+    marcaNome: Optional[str] = None
+    modeloSelecionado: Optional[str] = None
+    modeloNome: Optional[str] = None
+    anoSelecionado: Optional[str] = None
+    veiculo: VeiculoSchema
+    financeiro: FinanceiroSchema
+
+    class Config:
+        from_attributes = True
