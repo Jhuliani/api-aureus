@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator
+from typing import Optional, Union
 from datetime import date
 
 class SimulacaoSchema(BaseModel):
@@ -82,7 +82,7 @@ class ContratosResponseSchema(BaseModel):
 class InformacoesFipeSchema(BaseModel):
     Valor: Optional[str] = None
     Combustivel: Optional[str] = None
-    CodigoFIPE: Optional[str] = None
+    CodigoFipe: Optional[str] = None  # Corrigido: estava CodigoFIPE
     MesReferencia: Optional[str] = None
 
     class Config:
@@ -99,14 +99,19 @@ class VeiculoSchema(BaseModel):
 
 class FinanceiroSchema(BaseModel):
     valorVeiculo: float
-    valorEntrada: float
+    valorEntrada: Union[float, None] = 0.0  # Aceita None e converte para 0
     parcelasSelecionadas: int
     taxaJuros: float
-    rendaMensal: float
+    rendaMensal: Union[float, None] = 0.0  # Aceita None e converte para 0
     valorFinanciado: Optional[float] = None
     valorParcela: Optional[float] = None
     totalPagar: Optional[float] = None
     totalJuros: Optional[float] = None
+
+    @field_validator('valorEntrada', 'rendaMensal', mode='before')
+    @classmethod
+    def converter_none_para_zero(cls, v):
+        return v if v is not None else 0.0
 
     class Config:
         from_attributes = True
@@ -115,13 +120,25 @@ class SolicitacaoCompletaSchema(BaseModel):
     id_cliente: int
     informacoesFipe: Optional[InformacoesFipeSchema] = None
     tipoVeiculo: Optional[str] = None
-    marcaSelecionada: Optional[str] = None
+    marcaSelecionada: Optional[Union[str, int]] = None  # Aceita string ou int
     marcaNome: Optional[str] = None
-    modeloSelecionado: Optional[str] = None
+    modeloSelecionado: Optional[Union[str, int]] = None  # Aceita string ou int (frontend envia número)
     modeloNome: Optional[str] = None
     anoSelecionado: Optional[str] = None
     veiculo: VeiculoSchema
     financeiro: FinanceiroSchema
+    # Campos extras que podem vir do frontend (ignorados)
+    resultadoSimulacao: Optional[dict] = None
+    veioDaSimulacao: Optional[bool] = None
+
+    @field_validator('modeloSelecionado', 'marcaSelecionada', mode='before')
+    @classmethod
+    def converter_para_string(cls, v):
+        # Converte número para string se necessário
+        if v is not None:
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True
+        extra = "ignore"  # Ignora campos extras que não estão no schema
