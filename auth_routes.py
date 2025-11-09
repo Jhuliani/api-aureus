@@ -64,7 +64,9 @@ async def login(request: Request, login_schema: LoginSchema, session: Session = 
             "refresh_token": refresh_token,
             "token_type": "Bearer",
             "id_cliente": cliente.id_cliente,
-            "nome_cliente": cliente.nome
+            "nome_cliente": cliente.nome,
+            "id_perfil": usuario.id_perfil,
+            "id_usuario": usuario.id_usuario
         }
     
 @auth_router.post("/login-form")

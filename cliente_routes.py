@@ -26,8 +26,6 @@ async def cadastrar_cliente_completo(
     Cadastra cliente completo (endereço + usuário + cliente) em uma única transação
     """
     try:
-        session.begin()
-        
         usuario_existente = session.query(Usuario).filter(Usuario.login == dados.login).first()
         if usuario_existente:
             session.rollback()
@@ -196,8 +194,6 @@ async def criar_solicitacao_financiamento(
     - Cria todas as Parcelas
     """
     try:
-        session.begin()
-        
         cliente = session.query(Cliente).filter(Cliente.id_cliente == dados.id_cliente).first()
         if not cliente:
             session.rollback()
@@ -258,7 +254,7 @@ async def criar_solicitacao_financiamento(
             id_veiculo=veiculo.id_veiculo,
             num_contrato=num_contrato,
             data_emissao=data_emissao,
-            status="ativo"
+            status="pendente"  # Status inicial: pendente de aprovação
         )
         session.add(contrato)
         session.flush()
