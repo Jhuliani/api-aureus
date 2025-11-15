@@ -5,16 +5,25 @@ import os
 
 load_dotenv()
 
-#cria a conexão
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database.db")
-db = create_engine(DATABASE_URL)
 
-#cria a base do banco de dados
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database.db")
+
+
+if DATABASE_URL.startswith("postgresql"):
+    db = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  
+        pool_recycle=3600,   
+        pool_size=5,        
+        max_overflow=10,     
+        echo=False            
+    )
+else:
+    db = create_engine(DATABASE_URL)
+
 Base = declarative_base()
 
-# =======================
-# TABELA PERFIL
-# =======================
+
 class Perfil(Base):
     __tablename__ = "perfil"
 
@@ -47,9 +56,6 @@ class Usuario(Base):
         self.senha_hash = senha_hash
         self.data_criacao = data_criacao
 
-# =======================
-# TABELA ENDERECO
-# =======================
 class Endereco(Base):
     __tablename__ = "endereco"
 
@@ -61,7 +67,6 @@ class Endereco(Base):
     estado = Column("estado", String(2), nullable=False)
     cep = Column("cep", String(9), nullable=False)
 
-    # Relacionamentos
     clientes = relationship("Cliente", back_populates="endereco")
 
     def __init__(self, logradouro, numero, bairro, cidade, estado, cep):
@@ -86,7 +91,6 @@ class Cliente(Base):
     renda = Column("renda", Numeric(10, 2))
     data_cadastro = Column("data_cadastro", Date, default=Date)
 
-    # Relacionamentos
     usuario = relationship("Usuario", back_populates="cliente")
     endereco = relationship("Endereco", back_populates="clientes")
     contratos = relationship("Contrato", back_populates="cliente")
@@ -116,7 +120,6 @@ class Veiculo(Base):
     num_renavam = Column("num_renavam", String(20), unique=True, nullable=False)
     valor = Column("valor", Numeric(12, 2), nullable=False)
 
-    # Relacionamentos
     contrato = relationship("Contrato", back_populates="veiculo", uselist=False)
 
     def __init__(self, marca, modelo, ano_fabricacao, ano_modelo, cor, placa, num_chassi, num_renavam, valor):
@@ -142,7 +145,6 @@ class Contrato(Base):
     vigencia_fim = Column("vigencia_fim", Date)
     status = Column("status", String(30), default="ativo")
 
-    # Relacionamentos
     cliente = relationship("Cliente", back_populates="contratos")
     veiculo = relationship("Veiculo", back_populates="contrato")
     financeiro = relationship("Financeiro", back_populates="contrato", uselist=False)
@@ -168,7 +170,6 @@ class Financeiro(Base):
     status_pagamento = Column("status_pagamento", String(30), default="em_dia")
     data_criacao = Column("data_criacao", Date, default=Date)
 
-    # Relacionamentos
     contrato = relationship("Contrato", back_populates="financeiro")
     parcelas = relationship("Parcela", back_populates="financeiro")
 
@@ -195,10 +196,8 @@ class Parcela(Base):
     valor_pago = Column("valor_pago", Numeric(12, 2))
     status = Column("status", String(30), default="pendente")
 
-    # Relacionamentos
     financeiro = relationship("Financeiro", back_populates="parcelas")
 
-    # Constraints
     __table_args__ = (
         UniqueConstraint('id_financeiro', 'numero_parcela', name='uq_financeiro_numero_parcela'),
     )

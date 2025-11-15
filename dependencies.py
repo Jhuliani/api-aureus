@@ -6,10 +6,13 @@ from models import Usuario
 from jose import jwt, JWTError
 
 def pegar_sessao():
+    SessionLocal = sessionmaker(bind=db, autocommit=False, autoflush=False)
+    session = SessionLocal()
     try:
-        Session = sessionmaker(bind=db)
-        session = Session()
         yield session
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

@@ -5,7 +5,7 @@ from main import limiter
 from schemas import (
     ClienteCompletoSchema, ContratoDetalhadoSchema, ContratosResponseSchema,
     SolicitacaoCompletaSchema, ContratoCompletoSchema, VeiculoCompletoSchema,
-    FinanceiroCompletoSchema, ParcelaSchema
+    FinanceiroCompletoSchema, ParcelaSchema, ClienteInfoSchema
 )
 from models import Contrato, Endereco, Usuario, Cliente, Financeiro, Veiculo, Parcela
 from main import bcrypt_context
@@ -152,6 +152,10 @@ async def detalhes_contrato(id_contrato: int, session: Session = Depends(pegar_s
     if not contrato:
         raise HTTPException(status_code=404, detail="Contrato não encontrado")
     
+    cliente = session.query(Cliente).filter(Cliente.id_cliente == contrato.id_cliente).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    
     veiculo = session.query(Veiculo).filter(Veiculo.id_veiculo == contrato.id_veiculo).first()
     if not veiculo:
         raise HTTPException(status_code=404, detail="Veículo não encontrado para este contrato")
@@ -199,6 +203,15 @@ async def detalhes_contrato(id_contrato: int, session: Session = Depends(pegar_s
         valor=float(veiculo.valor)
     )
     
+    cliente_schema = ClienteInfoSchema(
+        id_cliente=cliente.id_cliente,
+        nome=cliente.nome,
+        cpf=cliente.cpf,
+        email=cliente.email,
+        telefone=cliente.telefone,
+        renda=float(cliente.renda) if cliente.renda else None
+    )
+    
     return ContratoCompletoSchema(
         id_contrato=contrato.id_contrato,
         numero_contrato=contrato.num_contrato,
@@ -207,7 +220,8 @@ async def detalhes_contrato(id_contrato: int, session: Session = Depends(pegar_s
         data_emissao=contrato.data_emissao,
         vigencia_fim=contrato.vigencia_fim,
         veiculo=veiculo_schema,
-        financeiro=financeiro_schema
+        financeiro=financeiro_schema,
+        cliente=cliente_schema
     )
 
 

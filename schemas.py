@@ -121,6 +121,18 @@ class VeiculoCompletoSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class ClienteInfoSchema(BaseModel):
+    """Schema com informações básicas do cliente"""
+    id_cliente: int
+    nome: str
+    cpf: str
+    email: str
+    telefone: Optional[str] = None
+    renda: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
 class ContratoCompletoSchema(BaseModel):
     id_contrato: int
     numero_contrato: str
@@ -130,6 +142,7 @@ class ContratoCompletoSchema(BaseModel):
     vigencia_fim: Optional[date] = None
     veiculo: VeiculoCompletoSchema
     financeiro: FinanceiroCompletoSchema
+    cliente: ClienteInfoSchema  
 
     class Config:
         from_attributes = True
@@ -196,4 +209,91 @@ class SolicitacaoCompletaSchema(BaseModel):
 
     class Config:
         from_attributes = True
-        extra = "ignore"  
+        extra = "ignore"
+
+# ========================
+# Schemas para Admin
+# ========================
+
+class SolicitacaoListaSchema(BaseModel):
+    """Schema para listar solicitações em aberto no painel admin"""
+    id_contrato: int
+    numero_contrato: str
+    id_cliente: int
+    nome_cliente: str
+    marca_veiculo: str
+    modelo_veiculo: str
+    valor_veiculo: float
+    valor_entrada: float
+    qtde_parcelas: int
+    status: str
+    data_emissao: date
+
+    class Config:
+        from_attributes = True
+
+class SolicitacoesResponseSchema(BaseModel):
+    """Resposta com lista de solicitações"""
+    solicitacoes: list[SolicitacaoListaSchema]
+    total: int
+
+    class Config:
+        from_attributes = True
+
+class ContratoListaSchema(BaseModel):
+    """Schema para listar contratos vigentes no painel admin"""
+    id_contrato: int
+    numero_contrato: str
+    id_cliente: int
+    nome_cliente: str
+    marca_veiculo: str
+    modelo_veiculo: str
+    valor_total: float
+    status: str
+    data_emissao: date
+
+    class Config:
+        from_attributes = True
+
+class ContratosVigentesResponseSchema(BaseModel):
+    """Resposta com lista de contratos vigentes"""
+    contratos: list[ContratoListaSchema]
+    total: int
+
+    class Config:
+        from_attributes = True
+
+class SolicitacaoDetalheSchema(BaseModel):
+    """Schema com detalhes completos de uma solicitação"""
+    id_contrato: int
+    numero_contrato: str
+    id_cliente: int
+    nome_cliente: str
+    cpf_cliente: str
+    email_cliente: str
+    telefone_cliente: Optional[str] = None
+    data_emissao: date
+    status: str
+    veiculo: VeiculoCompletoSchema
+    financeiro: FinanceiroCompletoSchema
+
+    class Config:
+        from_attributes = True
+
+class AprovarRejeitarSchema(BaseModel):
+    """Schema para aprovar ou rejeitar solicitação"""
+    motivo: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class DashboardMetricasSchema(BaseModel):
+    """Schema com métricas do dashboard admin"""
+    solicitacoes_pendentes: int
+    contratos_ativos: int
+    valor_total_financiado: float
+    parcelas_em_atraso_qtd: int
+    parcelas_em_atraso_valor: float
+
+    class Config:
+        from_attributes = True  
