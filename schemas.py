@@ -56,7 +56,7 @@ class ClienteCompletoSchema(BaseModel):
     # Usuário
     login: str
     senha: str
-    id_perfil: int = 2  # Assumindo que 2 é o perfil de cliente
+    id_perfil:  int = 1
 
     class Config:
         from_attributes = True

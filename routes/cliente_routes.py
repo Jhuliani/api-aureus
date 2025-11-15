@@ -58,7 +58,7 @@ async def cadastrar_cliente_completo(
         senha_hash = bcrypt.hashpw(senha_bytes, bcrypt.gensalt()).decode('utf-8')
         
         usuario = Usuario(
-            id_perfil=dados.id_perfil,
+            id_perfil=1,  
             login=dados.login,
             senha_hash=senha_hash,
             data_criacao=date.today()
