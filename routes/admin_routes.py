@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import Optional
-from dependencies import pegar_sessao, verificar_token
+from dependencies import pegar_sessao, verificar_token, verificar_admin
 from models import Contrato, Cliente, Veiculo, Financeiro, Parcela
 from schemas import (
     SolicitacoesResponseSchema, SolicitacaoListaSchema, SolicitacaoDetalheSchema,
@@ -11,7 +11,7 @@ from schemas import (
 )
 from datetime import date
 
-admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verificar_token)])
+admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verificar_admin)])
 
 
 @admin_router.get("/dashboard/metrics", response_model=DashboardMetricasSchema)
