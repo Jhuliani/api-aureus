@@ -44,7 +44,7 @@ async def home():
     return {"mensagem": "Você acessou a rota padrão de autenticação", "autenticado": False}
 
 @auth_router.post("/login")
-# @limiter.limit("5/minute")  
+@limiter.limit("5/minute")  
 async def login(request: Request, login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):
     usuario = autenticar_usuario(login_schema.login, login_schema.senha, session)
     
